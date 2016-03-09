@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright (C) 1997-2004 by Dimitri van Heesch.
+ * Copyright (C) 1997-2015 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby
@@ -458,6 +458,12 @@ ulong QCString::toULong(bool *ok) const
 {
   QString s(data());
   return s.toULong(ok);
+}
+
+uint64 QCString::toUInt64(bool *ok) const
+{
+  QString s(data());
+  return s.toUInt64(ok);
 }
 
 QCString &QCString::setNum(short n)

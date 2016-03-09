@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 1997-2004 by Dimitri van Heesch.
+** Copyright (C) 1997-2015 by Dimitri van Heesch.
 **
 ** Permission to use, copy, modify, and distribute this software and its
 ** documentation under the terms of the GNU General Public License is hereby
@@ -149,7 +149,7 @@ public:
     /** creates a string with room for size characters
      *  @param[in] size the number of character to allocate (including the 0-terminator)
      */
-    QCString( int size ) : m_rep(size)
+    explicit QCString( int size ) : m_rep(size)
     {
     }
 
@@ -288,6 +288,7 @@ public:
     uint toUInt( bool *ok=0 ) const;
     long toLong( bool *ok=0 ) const;
     ulong toULong( bool *ok=0 )	const;
+    uint64 toUInt64( bool *ok=0 ) const;
     QCString &setNum(short n);
     QCString &setNum(ushort n);
     QCString &setNum(int n);

@@ -2,7 +2,7 @@
  *
  *
  *
- * Copyright (C) 1997-2014 by Dimitri van Heesch.
+ * Copyright (C) 1997-2015 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby
@@ -1488,7 +1488,7 @@ class TranslatorDutch : public Translator
      */
     virtual QCString trProvidedByCategory()
     {
-      return "Wordt aangeboden door category @1.";
+      return "Wordt aangeboden door category @0.";
     }
 
     /*! Used in a method of an Objective-C category that extends a class.
@@ -1497,7 +1497,7 @@ class TranslatorDutch : public Translator
      */
     virtual QCString trExtendsClass()
     {
-      return "Uitbereiding van klasse @1.";
+      return "Uitbereiding van klasse @0.";
     }
 
     /*! Used as the header of a list of class methods in Objective-C.

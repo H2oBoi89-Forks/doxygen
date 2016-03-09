@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2014 by Dimitri van Heesch.
+ * Copyright (C) 1997-2015 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -39,7 +39,7 @@
  *        type, and the matchArgumentList in util.cpp is be used to
  *        further determine the correct separation.
  */
-
+%option never-interactive
 %{
 
 /*
@@ -57,8 +57,8 @@
 #include "arguments.h"
 #include "message.h"
   
-#define YY_NEVER_INTERACTIVE 1
 #define YY_NO_INPUT 1
+#define YY_NO_UNISTD_H 1
   
 /* -----------------------------------------------------------------
  *	state variables
@@ -346,7 +346,7 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
 						int bi=g_curArgTypeName.find('(');
 						int fi=bi-1;
 						//printf("func arg fi=%d\n",fi);
-						while (fi>=0 && isId(g_curArgTypeName.at(fi))) fi--;
+						while (fi>=0 && (isId(g_curArgTypeName.at(fi)) || g_curArgTypeName.at(fi)==':')) fi--;
 						if (fi>=0)
 						{
 						  a->type  = g_curArgTypeName.left(fi+1);
@@ -374,14 +374,14 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
 						    a->type.mid(sv)=="union"     ||
 						    a->type.mid(sv)=="class"     ||
 						    a->type.mid(sv)=="typename"  ||
-						    a->type=="const"             ||
+						    a->type=="const"               ||
 						    a->type=="volatile"
 						   )
 						{ 
 						  a->type = a->type + " " + a->name;
 						  a->name.resize(0);
 						}
-						//printf(" --> a->type='%s'\n",a->type.data());
+						//printf(" --> a->type='%s' a->name='%s'\n",a->type.data(),a->name.data());
 					      }
 					      else // assume only the type was specified, try to determine name later 
 					      {

@@ -14,12 +14,12 @@
  * input used in their production; they are not affected by this license.
  *
  */ 
+%option never-interactive
 %{
 #include <stdio.h> 
 #include <stdlib.h>
 #include <assert.h>
 #include <ctype.h>
-#include <unistd.h> 
 
 #include <qstring.h>
 #include <qstringlist.h>
@@ -51,8 +51,8 @@
 #include "namespacedef.h"
 #include "filedef.h"
 
-#define YY_NEVER_INTERACTIVE 1
 #define YY_NO_INPUT 1
+#define YY_NO_UNISTD_H 1
 
 #define MAX_INCLUDE_DEPTH 10
 
@@ -666,7 +666,9 @@ static void tcl_codify(const char *s,const char *str)
     tcl.code->startFontClass(s);
     tcl.code_font=s;
   }
-  const char *p=str,*sp=p;
+  char *tmp = (char *) malloc(strlen(str)+1);
+  strcpy(tmp, str);
+  char *p=tmp,*sp=p;
   char c;
   bool done=FALSE;
   while (!done)
@@ -676,7 +678,10 @@ static void tcl_codify(const char *s,const char *str)
     if (c=='\n')
     {
       tcl.code_line++;
-      // *(p-1)='\0'; // Dimitri: is this really needed?
+      *(p-1)='\0'; // Dimitri: is this really needed?
+                   // wtschueller: As far as I can see: yes.
+                   // Deletes that \n that would produce ugly source listings otherwise.
+                   // However, there may exist more sophisticated solutions.
       tcl.code->codify(sp);
       if (tcl.code_font)
       {
@@ -699,6 +704,7 @@ static void tcl_codify(const char *s,const char *str)
       done=TRUE;
     }
   }
+  free(tmp);
   tcl_font_end();
 }
 
@@ -2812,24 +2818,21 @@ static void tcl_init()
 {
   // Get values from option TCL_SUBST
   tcl.config_subst.clear();
-  if (Config::instance()->get("TCL_SUBST")) 
+  QStrList myStrList = Config_getList(TCL_SUBST);
+  const char *s=myStrList.first();
+  while (s) 
   {
-    QStrList myStrList = Config_getList("TCL_SUBST");
-    const char *s=myStrList.first();
-    while (s) 
+    QCString myStr=s;
+    int i=myStr.find('=');
+    if (i>0)
     {
-      QCString myStr=s;
-      int i=myStr.find('=');
-      if (i>0)
-      {
-        QCString myName=myStr.left(i).stripWhiteSpace();
-        QCString myValue=myStr.right(myStr.length()-i-1).stripWhiteSpace();
-        if (!myName.isEmpty() && !myValue.isEmpty())
-tcl_inf("TCL_SUBST: use '%s'\n",s);
-        tcl.config_subst[myName] = myValue;
-      }
-      s = myStrList.next();
+      QCString myName=myStr.left(i).stripWhiteSpace();
+      QCString myValue=myStr.right(myStr.length()-i-1).stripWhiteSpace();
+      if (!myName.isEmpty() && !myValue.isEmpty())
+        tcl_inf("TCL_SUBST: use '%s'\n",s);
+      tcl.config_subst[myName] = myValue;
     }
+    s = myStrList.next();
   }
 
   if (tcl.input_string.at(tcl.input_string.length()-1) == 0x1A)
@@ -2848,7 +2851,7 @@ tcl_inf("TCL_SUBST: use '%s'\n",s);
   tcl.code_font=NULL;
   tcl.code_line=1;
   tcl.code_linenumbers=1;
-  tcl.config_autobrief = Config_getBool("JAVADOC_AUTOBRIEF");
+  tcl.config_autobrief = Config_getBool(JAVADOC_AUTOBRIEF);
   tcl.input_position = 0;
   tcl.file_name = NULL;
   tcl.this_parser = NULL;

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2015 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -325,6 +325,9 @@ class FlowChart
     static void printFlowTree();
     static void buildCommentNodes(FTextStream &t);
     static void alignCommentNode(FTextStream &t,QCString com);
+
+    static void  printUmlTree();
+    static QCString printPlantUmlNode(const FlowChart *flo,bool,bool);
 
     static QList<FlowChart> flowList;
 

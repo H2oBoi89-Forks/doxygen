@@ -1,6 +1,6 @@
 /*****************************************************************************
  *
- * Copyright (C) 1997-2014 by Dimitri van Heesch.
+ * Copyright (C) 1997-2015 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -12,7 +12,8 @@
  * input used in their production; they are not affected by this license.
  *
  */
-  
+
+%option never-interactive
 %{
 
 /*
@@ -26,7 +27,6 @@
 #include <qarray.h>
 #include <qstack.h>
 #include <qregexp.h>
-#include <unistd.h>
 #include <qfile.h>
   
 #include "scanner.h"
@@ -49,6 +49,7 @@
 #include "formula.h"
 
 #define YY_NO_INPUT 1
+#define YY_NO_UNISTD_H 1
 
 // forward declarations
 static bool handleBrief(const QCString &);
@@ -373,7 +374,7 @@ class GuardedSection
 void openGroup(Entry *e,const char *file,int line);
 void closeGroup(Entry *e,const char *file,int line,bool foundInline=FALSE);
 void initGroupInfo(Entry *e);
-static void groupAddDocs(Entry *e,const char *fileName);
+static void groupAddDocs(Entry *e);
 
 /* -----------------------------------------------------------------
  *
@@ -833,6 +834,29 @@ static inline void setOutput(OutputContext ctx)
   }
 }
 
+
+static void addAnchor(const char *anchor)
+{
+  SectionInfo *si = Doxygen::sectionDict->find(anchor);
+  if (si)
+  {
+    if (si->lineNr != -1)
+    {
+      warn(yyFileName,yyLineNr,"multiple use of section label '%s' while adding anchor, (first occurrence: %s, line %d)",anchor,si->fileName.data(),si->lineNr);
+    }
+    else
+    {
+      warn(yyFileName,yyLineNr,"multiple use of section label '%s' while adding anchor, (first occurrence: %s)",anchor,si->fileName.data());
+    }
+  }
+  else
+  {
+    si = new SectionInfo(yyFileName,yyLineNr,anchor,0,SectionInfo::Anchor,0);
+    Doxygen::sectionDict->append(anchor,si);
+    current->anchors->append(si);
+  }
+}
+
 // add a string to the output
 static inline void addOutput(const char *s)
 {
@@ -904,6 +928,7 @@ IMG       [iI][mM][gG]
 HR        [hH][rR]
 PARA      [pP][aA][rR][aA]
 CODE      [cC][oO][dD][eE]
+CAPTION   [cC][aA][pP][tT][iI][oO][nN]
 DETAILEDHTML {PRE}|{UL}|{TABLE}|{OL}|{DL}|{P}|[Hh][1-6]|{IMG}|{HR}|{PARA}
 DETAILEDHTMLOPT {CODE}
 BN        [ \t\n\r]
@@ -919,7 +944,7 @@ FILEECHAR [a-z_A-Z0-9\x80-\xFF\-\+@&#]
 FILE      ({FILESCHAR}*{FILEECHAR}+("."{FILESCHAR}*{FILEECHAR}+)*)|("\""[^\n\"]*"\"")
 ID        "$"?[a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF]*
 LABELID   [a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF\-]*
-CITESCHAR [a-z_A-Z\x80-\xFF]
+CITESCHAR [a-z_A-Z0-9\x80-\xFF]
 CITEECHAR [a-z_A-Z0-9\x80-\xFF\-\+:\/]*
 CITEID    {CITESCHAR}{CITEECHAR}*("."{CITESCHAR}{CITEECHAR}*)*
 SCOPEID   {ID}({ID}*{BN}*"::"{BN}*)*({ID}?)
@@ -1007,23 +1032,6 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 <Comment>("\\"[a-z_A-Z]+)+"\\"		{ // directory (or chain of commands!)
   					  addOutput(yytext);
   					}
-<Comment>{XREFCMD}/[^a-z_A-Z]*		{ // xref command 
-					  if (inContext!=OutputXRef) 
-					  {
-					    briefEndsAtDot=FALSE;
-					    setOutput(OutputDoc);
-					  }
-					  // continue with the same input
-                                          REJECT;
-					}
-   /*
-<Comment>{DETAILEDCMD}/[^a-z_A-Z]*	{ // command that can end a brief description
-				          briefEndsAtDot=FALSE;
-				          setOutput(OutputDoc);
-					  // continue with the same input
-                                          REJECT;
-					}
-   */
 <Comment>"<"{DETAILEDHTML}{ATTR}">"	{ // HTML command that ends a brief description
 					  setOutput(OutputDoc);
 					  // continue with the same input
@@ -1052,6 +1060,24 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 <Comment>"</remarks>"			{ // end of a brief or detailed description
                                           addOutput(yytext);
   					}
+<Comment>"<"{CAPTION}{ATTR}">"          {
+                                          QCString tag=yytext;
+                                          int s=tag.find("id=");
+                                          if (s!=-1) // command has id attribute
+                                          {
+                                            char c=tag[s+3];
+                                            if (c=='\'' || c=='"') // valid start
+                                            {
+                                              int e=tag.find(c,s+4);
+                                              if (e!=-1) // found matching end
+                                              {
+                                                QCString id=tag.mid(s+4,e-s-4); // extract id
+                                                addAnchor(id);
+                                              }
+                                            }
+                                          }
+                                          addOutput(yytext);
+                                        }
 <Comment>"<"{PRE}{ATTR}">"              {
                                           insidePre=TRUE;
                                           addOutput(yytext);
@@ -1084,8 +1110,8 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
                                             int i=0;
                                             while (yytext[i]==' ' || yytext[i]=='\t') i++;
 					    g_spaceBeforeCmd = QCString(yytext).left(i);
-					    if (cmdPtr->endsBrief && inContext!=OutputXRef) 
-					    { 
+					    if (cmdPtr->endsBrief && !(inContext==OutputXRef && cmdName=="parblock"))
+					    {
 					      briefEndsAtDot=FALSE;
 					      // this command forces the end of brief description
 					      setOutput(OutputDoc);
@@ -1102,7 +1128,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 					      // but we need to know the position in the input buffer where this 
 					      // rule matched.
 					      // for flex 2.5.33+ we should use YY_CURRENT_BUFFER_LVALUE
-#if YY_FLEX_MINOR_VERSION>=5 && YY_FLEX_SUBMINOR_VERSION>=33
+#if YY_FLEX_MAJOR_VERSION>=2 && (YY_FLEX_MINOR_VERSION>5 || (YY_FLEX_MINOR_VERSION==5 && YY_FLEX_SUBMINOR_VERSION>=33))
 					      inputPosition=prevPosition + (int)(yy_bp - YY_CURRENT_BUFFER_LVALUE->yy_ch_buf);
 #else
 					      inputPosition=prevPosition + (int)(yy_bp - yy_current_buffer->yy_ch_buf);
@@ -1127,7 +1153,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 <Comment>{B}*{CMD}"~"[a-z_A-Z-]*		{ // language switch command
                                           QCString langId = QString(yytext).stripWhiteSpace().data()+2;
 			       	          if (!langId.isEmpty() &&
-					      qstricmp(Config_getEnum("OUTPUT_LANGUAGE"),langId)!=0)
+					      qstricmp(Config_getEnum(OUTPUT_LANGUAGE),langId)!=0)
 				          { // enable language specific section
 				            BEGIN(SkipLang);
 				          }
@@ -1164,7 +1190,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
                                           g_memberGroupHeader.resize(0);
 					  parseMore=TRUE;
                                           needNewEntry = TRUE;
-#if YY_FLEX_MINOR_VERSION>=5 && YY_FLEX_SUBMINOR_VERSION>=33
+#if YY_FLEX_MAJOR_VERSION>=2 && (YY_FLEX_MINOR_VERSION>5 || (YY_FLEX_MINOR_VERSION==5 && YY_FLEX_SUBMINOR_VERSION>=33))
 				          inputPosition=prevPosition + (int)(yy_bp - YY_CURRENT_BUFFER_LVALUE->yy_ch_buf) + strlen(yytext);
 #else
 				          inputPosition=prevPosition + (int)(yy_bp - yy_current_buffer->yy_ch_buf) + strlen(yytext);
@@ -1744,24 +1770,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
   /* ----- handle arguments of the anchor command ------- */
 
 <AnchorLabel>{LABELID}			{ // found argument
-                                          SectionInfo *si = Doxygen::sectionDict->find(yytext);
-                                          if (si)
-                                          {
-                                            if (si->lineNr != -1)
-                                            {
-                                              warn(yyFileName,yyLineNr,"multiple use of section label '%s' while adding anchor, (first occurrence: %s, line %d)",yytext,si->fileName.data(),si->lineNr);
-                                            }
-                                            else
-                                            {
-                                              warn(yyFileName,yyLineNr,"multiple use of section label '%s' while adding anchor, (first occurrence: %s)",yytext,si->fileName.data());
-                                            }
-                                          }
-                                          else
-                                          {
-                                            si = new SectionInfo(yyFileName,yyLineNr,yytext,0,SectionInfo::Anchor,0);
-                                            Doxygen::sectionDict->append(yytext,si);
-  					    current->anchors->append(si);
-                                          }
+                                          addAnchor(yytext);
 					  addOutput(yytext);
 					  BEGIN( Comment );
   					}
@@ -2167,7 +2176,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 <SkipLang>[\\@]"~"[a-zA-Z-]*        { /* language switch */
                                      QCString langId = &yytext[2];
 				     if (langId.isEmpty() ||
-					 qstricmp(Config_getEnum("OUTPUT_LANGUAGE"),langId)==0)
+					 qstricmp(Config_getEnum(OUTPUT_LANGUAGE),langId)==0)
 				     { // enable language specific section
 				       BEGIN(Comment);
 				     }
@@ -2713,7 +2722,7 @@ static bool handleHideCallergraph(const QCString &)
 
 static bool handleInternal(const QCString &)
 {
-  if (!Config_getBool("INTERNAL_DOCS"))
+  if (!Config_getBool(INTERNAL_DOCS))
   {
     // make sure some whitespace before a \internal command
     // is not treated as "documentation"
@@ -2915,7 +2924,7 @@ bool parseCommentBlock(/* in */     ParserInterface *parser,
   }
 
   Debug::print(Debug::CommentScan,0,"-----------\nCommentScanner: %s:%d\n"
-               "input=[\n%s]\n",fileName.data(),lineNr,comment.data()
+               "input=[\n%s]\n",qPrint(fileName),lineNr,qPrint(comment)
               );
   
   commentscanYYrestart( commentscanYYin );
@@ -2962,15 +2971,15 @@ bool parseCommentBlock(/* in */     ParserInterface *parser,
 
   Debug::print(Debug::CommentScan,0,
                "brief=[line=%d\n%s]\ndocs=[line=%d\n%s]\ninbody=[line=%d\n%s]\n===========\n",
-	       current->briefLine,current->brief.data(),
-               current->docLine,current->doc.data(),
-               current->inbodyLine,current->inbodyDocs.data()
+	       current->briefLine,qPrint(current->brief),
+               current->docLine,qPrint(current->doc),
+               current->inbodyLine,qPrint(current->inbodyDocs)
               );
   
   checkFormula();
   prot = protection;
   
-  groupAddDocs(curEntry,fileName);
+  groupAddDocs(curEntry);
 
   newEntryNeeded = needNewEntry;
 
@@ -3099,10 +3108,10 @@ void openGroup(Entry *e,const char *,int)
   }
 }
 
-void closeGroup(Entry *e,const char *fileName,int,bool foundInline)
+void closeGroup(Entry *e,const char *fileName,int line,bool foundInline)
 {
-  //printf("==> closeGroup(name=%s,sec=%x) g_autoGroupStack=%d\n",
-  //    e->name.data(),e->section,g_autoGroupStack.count());
+  //printf("==> closeGroup(name=%s,sec=%x,file=%s,line=%d) g_autoGroupStack=%d\n",
+  //    e->name.data(),e->section,fileName,line,g_autoGroupStack.count());
   if (g_memberGroupId!=DOX_NOGROUP) // end of member group
   {
     MemberGroupInfo *info=Doxygen::memGrpInfoDict.find(g_memberGroupId);
@@ -3110,11 +3119,12 @@ void closeGroup(Entry *e,const char *fileName,int,bool foundInline)
     {
       info->doc = g_memberGroupDocs;
       info->docFile = fileName;
+      info->docLine = line;
     }
     g_memberGroupId=DOX_NOGROUP;
     g_memberGroupRelates.resize(0);
     g_memberGroupDocs.resize(0);
-    e->mGrpId=DOX_NOGROUP;
+    if (!foundInline) e->mGrpId=DOX_NOGROUP;
     //printf("new group id=%d\n",g_memberGroupId);
   }
   else if (!g_autoGroupStack.isEmpty()) // end of auto group
@@ -3143,7 +3153,7 @@ void initGroupInfo(Entry *e)
   }
 }
 
-static void groupAddDocs(Entry *e,const char *fileName)
+static void groupAddDocs(Entry *e)
 {
   if (e->section==Entry::MEMBERGRP_SEC)
   {
@@ -3158,7 +3168,8 @@ static void groupAddDocs(Entry *e,const char *fileName)
     if (info) 
     {
       info->doc = g_memberGroupDocs;
-      info->docFile = fileName;
+      info->docFile = e->docFile;
+      info->docLine = e->docLine;
       info->setRefItems(e->sli);
     }
     e->doc.resize(0);

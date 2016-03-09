@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2014 by Dimitri van Heesch.
+ * Copyright (C) 1997-2015 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -216,8 +216,8 @@ void Entry::addSubEntry(Entry *current)
 
 void Entry::reset()
 {
-  static bool entryCallGraph   = Config_getBool("CALL_GRAPH");
-  static bool entryCallerGraph = Config_getBool("CALLER_GRAPH");
+  static bool entryCallGraph   = Config_getBool(CALL_GRAPH);
+  static bool entryCallerGraph = Config_getBool(CALLER_GRAPH);
   //printf("Entry::reset()\n");
   name.resize(0);
   type.resize(0);

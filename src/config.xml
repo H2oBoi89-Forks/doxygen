@@ -6,7 +6,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2014 by Dimitri van Heesch.
+ * Copyright (C) 1997-2015 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -679,6 +679,15 @@ Go to the <a href="commands.html">next</a> section or return to the
 ]]>
       </docs>
     </option>
+    <option type='bool' id='GROUP_NESTED_COMPOUNDS' defval='0'>
+      <docs>
+<![CDATA[
+ If one adds a struct or class to a group and this option is enabled, then also
+ any nested class or struct is added to the same group. By default this option
+ is disabled and one has to add nested compounds explicitly via \ref cmdingroup "\\ingroup".
+]]>
+      </docs>
+    </option>
     <option type='bool' id='SUBGROUPING' defval='1'>
       <docs>
 <![CDATA[
@@ -1212,6 +1221,14 @@ FILE_VERSION_INFO = "cleartool desc -fmt \%Vn"
 ]]>
       </docs>
     </option>
+    <option type='bool' id='WARN_AS_ERROR' defval='0'>
+      <docs>
+<![CDATA[
+ If the \c WARN_AS_ERROR tag is set to \c YES then doxygen will immediately stop
+ when a warning is encountered.
+]]>
+      </docs>
+    </option>
     <option type='string' id='WARN_FORMAT' format='string' defval='$file:$line: $text'>
       <docs>
 <![CDATA[
@@ -1243,7 +1260,9 @@ FILE_VERSION_INFO = "cleartool desc -fmt \%Vn"
  The \c INPUT tag is used to specify the files and/or directories that contain 
  documented source files. You may enter file names like 
  \c myfile.cpp or directories like \c /usr/src/myproject. 
- Separate the files or directories with spaces.
+ Separate the files or directories with spaces. See also
+ \ref cfg_file_patterns "FILE_PATTERNS"  and
+ \ref cfg_extension_mapping "EXTENSION_MAPPING"
 
  \note If this tag is empty the current directory is searched.
 ]]>
@@ -1267,7 +1286,11 @@ FILE_VERSION_INFO = "cleartool desc -fmt \%Vn"
  If the value of the \ref cfg_input "INPUT" tag contains directories, you can use the 
  \c FILE_PATTERNS tag to specify one or more wildcard patterns 
  (like `*.cpp` and `*.h`) to filter out the source-files 
- in the directories. If left blank the following patterns are tested:
+ in the directories.<br>
+ Note that for custom extensions or not directly supported extensions you also
+ need to set \ref cfg_extension_mapping "EXTENSION_MAPPING" for the extension
+ otherwise the files are not read by doxygen.<br>
+ If left blank the following patterns are tested:
 ]]>
       </docs>
       <value name='*.c'/>
@@ -1302,6 +1325,7 @@ FILE_VERSION_INFO = "cleartool desc -fmt \%Vn"
       <value name='*.mm'/>
       <value name='*.dox'/>
       <value name='*.py'/>
+      <value name='*.pyw'/>
       <value name='*.f90'/>
       <value name='*.f'/>
       <value name='*.for'/>
@@ -1421,6 +1445,10 @@ FILE_VERSION_INFO = "cleartool desc -fmt \%Vn"
  <br>Note that the filter must not add or remove lines; it is applied before the 
  code is scanned, but not when the output code is generated. If lines are added 
  or removed, the anchors will not be placed correctly.
+ <br>Note that for custom extensions or not directly supported extensions you also
+ need to set \ref cfg_extension_mapping "EXTENSION_MAPPING" for the extension
+ otherwise the files are not properly processed by doxygen.<br>
+
 ]]>
       </docs>
     </option>
@@ -1434,6 +1462,9 @@ FILE_VERSION_INFO = "cleartool desc -fmt \%Vn"
  information on how filters are used. If the \c FILTER_PATTERNS tag is empty or if
  none of the patterns match the file name, \ref cfg_input_filter "INPUT_FILTER" is 
  applied.
+ <br>Note that for custom extensions or not directly supported extensions you also
+ need to set \ref cfg_extension_mapping "EXTENSION_MAPPING" for the extension
+ otherwise the files are not properly processed by doxygen.<br>
 ]]>
       </docs>
     </option>
@@ -1581,7 +1612,7 @@ to disable this feature.
   necessary type information.
 
   @note The availability of this option depends on whether or not doxygen
-  was compiled with the `--with-libclang` option.
+  was generated with the `-Duse-libclang=ON` option for CMake.
 ]]>
       </docs>
     </option>
@@ -1889,13 +1920,13 @@ hr.footer {
 ]]>
       </docs>
     </option>
-    <option type='bool' id='HTML_TIMESTAMP' defval='1' depends='GENERATE_HTML'>
+    <option type='bool' id='HTML_TIMESTAMP' defval='0' depends='GENERATE_HTML'>
       <docs>
 <![CDATA[
  If the \c HTML_TIMESTAMP tag is set to \c YES then the footer of 
  each generated HTML page will contain the date and time when the page 
- was generated. Setting this to \c NO can help when comparing the output of 
- multiple runs.
+ was generated. Setting this to \c YES can help to show when doxygen was last run 
+ and thus if the documentation is up to date.
 ]]>
       </docs>
     </option>
@@ -2492,10 +2523,19 @@ EXTRA_SEARCH_MAPPINGS = tagname1=loc1 tagname2=loc2 ...
       <docs>
 <![CDATA[
  The \c EXTRA_PACKAGES tag can be used to specify one or more \f$\mbox{\LaTeX}\f$ 
- package names that should be included in the \f$\mbox{\LaTeX}\f$ output.
- To get the times font for instance you can specify 
+ package names that should be included in the \f$\mbox{\LaTeX}\f$ output. The package
+ can be specified just by its name or with the correct syntax as to be used with the
+ \f$\mbox{\LaTeX}\f$ `\usepackage` command.
+
+ To get the `times` font for instance you can specify :
 \verbatim
-EXTRA_PACKAGES=times
+  EXTRA_PACKAGES=times
+or 
+  EXTRA_PACKAGES={times}
+\endverbatim
+ To use the option `intlimits` with the `amsmath` package you can specify:
+\verbatim
+   EXTRA_PACKAGES=[intlimits]{amsmath}
 \endverbatim
  If left blank no extra packages will be included.
 ]]>
@@ -2620,6 +2660,16 @@ EXTRA_PACKAGES=times
  bibliography, e.g. \c plainnat, or \c ieeetr. 
  See http://en.wikipedia.org/wiki/BibTeX and \ref cmdcite "\\cite"
  for more info.
+]]>
+      </docs>
+    </option>
+    <option type='bool' id='LATEX_TIMESTAMP' defval='0' depends='GENERATE_LATEX'>
+      <docs>
+<![CDATA[
+ If the \c LATEX_TIMESTAMP tag is set to \c YES then the footer of
+ each generated page will contain the date and time when the page
+ was generated. Setting this to \c NO can help when comparing the output of
+ multiple runs.
 ]]>
       </docs>
     </option>

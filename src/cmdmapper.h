@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2014 by Dimitri van Heesch.
+ * Copyright (C) 1997-2015 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -130,7 +130,10 @@ enum CommandType
   CMD_MDASH        = 100,
   CMD_STARTUML     = 101,
   CMD_ENDUML       = 102,
-  CMD_SETSCOPE     = 103
+  CMD_SETSCOPE     = 103,
+  CMD_PUNT         = 104,
+  CMD_PLUS         = 105,
+  CMD_MINUS        = 106
 };
 
 enum HtmlTagType

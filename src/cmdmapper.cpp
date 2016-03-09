@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2014 by Dimitri van Heesch.
+ * Copyright (C) 1997-2015 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -115,6 +115,9 @@ CommandMap cmdMap[] =
   { "#",             CMD_HASH },
   { "%",             CMD_PERCENT },
   { "|",             CMD_PIPE },
+  { ".",             CMD_PUNT },
+  { "+",             CMD_PLUS },
+  { "-",             CMD_MINUS },
   { "::",            CMD_DCOLON },
   { "\"",            CMD_QUOTE },
   { "_internalref",  CMD_INTERNALREF },
